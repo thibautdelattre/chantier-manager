@@ -104,8 +104,8 @@ export function NewTaskModal({ onClose, onCreated }: { onClose: () => void; onCr
           </button>
           <button
             onClick={submit}
-            disabled={busy}
-            className="flex-1 bg-blueprint text-white rounded py-2 text-sm font-medium disabled:opacity-50"
+            disabled={busy || !title.trim()}
+            className="flex-1 bg-blueprint text-white rounded py-2 text-sm font-medium disabled:opacity-40"
           >
             Créer
           </button>
