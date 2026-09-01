@@ -14,6 +14,14 @@ export function directDependenciesOf(
   return dependencies.filter((d) => d.taskId === taskId).map((d) => d.dependsOnTaskId);
 }
 
+/** Les arêtes complètes (avec leur id) dont `taskId` dépend directement. */
+export function directDependencyEdgesOf(
+  taskId: string,
+  dependencies: TaskDependency[]
+): TaskDependency[] {
+  return dependencies.filter((d) => d.taskId === taskId);
+}
+
 /** Toutes les tâches directement bloquées par `taskId` (celles qu'elle débloque). */
 export function directDependentsOf(
   taskId: string,

@@ -49,10 +49,6 @@ export function TaskDetail({
       !wouldCreateCycle(task.id, t.task.id, allDependencyEdges)
   );
 
-  const dependsOnViews = state.view.tasks.filter((t) =>
-    view.readiness.blockedBy.some((b) => b.taskId === t.task.id)
-  );
-
   const unlocks = state.view.tasks.filter((t) =>
     t.readiness.blockedBy.some((b) => b.taskId === task.id)
   );
@@ -168,10 +164,24 @@ export function TaskDetail({
               Dépend de
             </h3>
             <ul className="space-y-1">
-              {dependsOnViews.map((d) => (
-                <li key={d.task.id} className="flex justify-between text-sm border-b border-line/60 py-1">
-                  <span>{d.task.title}</span>
-                  <span>{d.task.status === "DONE" ? "✅" : "❌"}</span>
+              {view.readiness.blockedBy.map((b) => (
+                <li
+                  key={b.dependencyId}
+                  className="flex items-center justify-between text-sm border-b border-line/60 py-1"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>{b.done ? "✅" : "⏳"}</span>
+                    {b.title}
+                  </span>
+                  <button
+                    onClick={() => withBusy(() => api.removeDependency(b.dependencyId))}
+                    disabled={busy}
+                    className="text-ink/40 hover:text-warn text-base leading-none px-1"
+                    aria-label={`Retirer la dépendance vers ${b.title}`}
+                    title="Retirer cette dépendance"
+                  >
+                    ×
+                  </button>
                 </li>
               ))}
             </ul>

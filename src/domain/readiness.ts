@@ -7,12 +7,14 @@
  */
 
 import type { Readiness, Task, TaskDependency } from "./types";
-import { directDependenciesOf, directDependentsOf } from "./graph";
+import { directDependencyEdgesOf, directDependentsOf } from "./graph";
 
 export interface BlockingInfo {
   taskId: string;
   title: string;
   done: boolean;
+  /** id de l'arête TaskDependency correspondante, pour permettre sa suppression. */
+  dependencyId: string;
 }
 
 export interface ReadinessResult {
@@ -33,15 +35,16 @@ export function computeReadiness(
   allTasks: Task[],
   dependencies: TaskDependency[]
 ): ReadinessResult {
-  const depIds = directDependenciesOf(task.id, dependencies);
+  const edges = directDependencyEdgesOf(task.id, dependencies);
   const taskById = new Map(allTasks.map((t) => [t.id, t]));
 
-  const blockedBy: BlockingInfo[] = depIds.map((id) => {
-    const dep = taskById.get(id);
+  const blockedBy: BlockingInfo[] = edges.map((edge) => {
+    const dep = taskById.get(edge.dependsOnTaskId);
     return {
-      taskId: id,
+      taskId: edge.dependsOnTaskId,
       title: dep?.title ?? "(tâche supprimée)",
       done: dep?.status === "DONE",
+      dependencyId: edge.id,
     };
   });
 
