@@ -4,7 +4,8 @@ import { useState } from "react";
 import type { StateResponse } from "@/lib/api-client";
 import { api } from "@/lib/api-client";
 import { ReadinessBadge, StaffingBadge } from "./badges";
-import type { ChecklistItem } from "@/domain/types";
+import type { ChecklistItem, TaskDependency } from "@/domain/types";
+import { wouldCreateCycle } from "@/domain/graph";
 
 export function TaskDetail({
   taskId,
@@ -29,6 +30,24 @@ export function TaskDetail({
   const otherTasks = state.view.tasks
     .filter((t) => t.task.id !== taskId)
     .sort((a, b) => a.task.title.localeCompare(b.task.title));
+
+  // Reconstruit la liste des arêtes du graphe à partir des vues (chaque
+  // "blockedBy" d'une tâche EST une dépendance) pour pouvoir filtrer, côté
+  // client, les choix qui n'ont aucune chance d'aboutir : déjà présents ou
+  // créant un cycle. Ça évite de proposer un choix voué à échouer.
+  const allDependencyEdges: TaskDependency[] = state.view.tasks.flatMap((t) =>
+    t.readiness.blockedBy.map((b) => ({
+      id: `${t.task.id}__${b.taskId}`,
+      taskId: t.task.id,
+      dependsOnTaskId: b.taskId,
+    }))
+  );
+  const alreadyDependsOnIds = new Set(view.readiness.blockedBy.map((b) => b.taskId));
+  const selectableTasks = otherTasks.filter(
+    (t) =>
+      !alreadyDependsOnIds.has(t.task.id) &&
+      !wouldCreateCycle(task.id, t.task.id, allDependencyEdges)
+  );
 
   const dependsOnViews = state.view.tasks.filter((t) =>
     view.readiness.blockedBy.some((b) => b.taskId === t.task.id)
@@ -164,32 +183,38 @@ export function TaskDetail({
           <h3 className="text-xs uppercase tracking-wide text-ink/50 font-mono mb-1.5">
             Ajouter une dépendance
           </h3>
-          <div className="flex gap-2">
-            <select
-              value={depTarget}
-              onChange={(e) => setDepTarget(e.target.value)}
-              className="flex-1 border border-line rounded px-2 py-1.5 text-sm bg-white"
-            >
-              <option value="">Choisir une tâche…</option>
-              {otherTasks.map((t) => (
-                <option key={t.task.id} value={t.task.id}>
-                  {t.task.area} — {t.task.title}
-                </option>
-              ))}
-            </select>
-            <button
-              disabled={!depTarget || busy}
-              onClick={() =>
-                withBusy(async () => {
-                  await api.addDependency(task.id, depTarget);
-                  setDepTarget("");
-                })
-              }
-              className="bg-blueprint text-white text-sm rounded px-3 disabled:opacity-40"
-            >
-              +
-            </button>
-          </div>
+          {selectableTasks.length === 0 ? (
+            <p className="text-xs text-ink/50">
+              Aucune tâche disponible à ajouter (déjà liées, ou créeraient un cycle).
+            </p>
+          ) : (
+            <div className="flex gap-2">
+              <select
+                value={depTarget}
+                onChange={(e) => setDepTarget(e.target.value)}
+                className="flex-1 border border-line rounded px-2 py-1.5 text-sm bg-white"
+              >
+                <option value="">Choisir une tâche…</option>
+                {selectableTasks.map((t) => (
+                  <option key={t.task.id} value={t.task.id}>
+                    {t.task.area} — {t.task.title}
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={!depTarget || busy}
+                onClick={() =>
+                  withBusy(async () => {
+                    await api.addDependency(task.id, depTarget);
+                    setDepTarget("");
+                  })
+                }
+                className="bg-blueprint text-white text-sm rounded px-3 disabled:opacity-40"
+              >
+                +
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Débloque */}
