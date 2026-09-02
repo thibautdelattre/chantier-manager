@@ -5,5 +5,4 @@ export * from "./staffing";
 export * from "./criticalPath";
 export * from "./planning";
 export * from "./priority";
-export * from "./layout";
 export * from "./projectView";
