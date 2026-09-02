@@ -13,6 +13,7 @@
  */
 
 import type { Priority, Task } from "./types";
+import { taskTotalHours } from "./types";
 import { countTransitiveDependents } from "./readiness";
 import type { TaskDependency } from "./types";
 import type { CriticalPathResult } from "./criticalPath";
@@ -53,7 +54,7 @@ export function computePriorityScore(
 
   // À égalité, favorise les tâches courtes (petit bonus inversement
   // proportionnel à la durée, plafonné pour ne pas dominer les autres facteurs).
-  const shortBonus = Math.max(0, 5 - task.estimatedDurationHours / 4);
+  const shortBonus = Math.max(0, 5 - taskTotalHours(task) / 4);
   score += shortBonus;
 
   return { taskId: task.id, score, reasons };

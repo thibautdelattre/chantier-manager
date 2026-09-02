@@ -81,7 +81,7 @@ export default function TodayPage() {
                 <p className="font-medium text-sm">{t.task.title}</p>
                 <p className="text-xs text-blueprint mt-1">
                   👤 {t.assignedMemberIds.length}/{t.task.requiredWorkers} · ⏱{" "}
-                  {t.task.estimatedDurationHours}h
+                  {t.totalHours}h
                 </p>
               </div>
             ))}
@@ -114,7 +114,7 @@ export default function TodayPage() {
                   </div>
                   <p className="font-medium text-sm">{t.task.title}</p>
                   <p className="text-xs text-ink/60 mt-1">
-                    👤 {t.task.requiredWorkers} pers. · ⏱ {t.task.estimatedDurationHours}h
+                    👤 {t.task.requiredWorkers} pers. · ⏱ {t.totalHours}h
                   </p>
                   {!t.assignableNow.assignable && (
                     <p className="text-xs text-warn mt-1">

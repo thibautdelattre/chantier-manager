@@ -14,6 +14,7 @@
  */
 
 import type { Task, TaskDependency } from "./types";
+import { taskTotalHours } from "./types";
 import { directDependenciesOf, topologicalOrder } from "./graph";
 import { computeCriticalPath } from "./criticalPath";
 
@@ -73,8 +74,10 @@ export function estimateResourcePlan(
       const aCrit = criticalSet.has(a) ? 1 : 0;
       const bCrit = criticalSet.has(b) ? 1 : 0;
       if (aCrit !== bCrit) return bCrit - aCrit; // chemin critique d'abord
-      const aDur = taskById.get(a)?.estimatedDurationHours ?? 0;
-      const bDur = taskById.get(b)?.estimatedDurationHours ?? 0;
+      const aTask = taskById.get(a);
+      const bTask = taskById.get(b);
+      const aDur = aTask ? taskTotalHours(aTask) : 0;
+      const bDur = bTask ? taskTotalHours(bTask) : 0;
       if (aDur !== bDur) return bDur - aDur; // plus longues d'abord
       return (topoIndex.get(a) ?? 0) - (topoIndex.get(b) ?? 0);
     });
@@ -85,7 +88,7 @@ export function estimateResourcePlan(
       if (!task) continue;
       if (task.requiredWorkers <= freeWorkers) {
         freeWorkers -= task.requiredWorkers;
-        const endHour = clock + task.estimatedDurationHours;
+        const endHour = clock + taskTotalHours(task);
         runningUntil.push({ taskId: id, endHour, workers: task.requiredWorkers });
         steps.push({ taskId: id, startHour: clock, endHour });
         pending.delete(id);

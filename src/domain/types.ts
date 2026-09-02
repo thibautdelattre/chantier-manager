@@ -8,6 +8,18 @@
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
 
 /**
+ * Mode de calcul du temps d'une tâche :
+ *  - FORFAIT : `estimatedDurationHours` EST la durée totale de la tâche.
+ *  - PER_UNIT : `estimatedDurationHours` est le temps PAR UNITÉ (par porte,
+ *    par radiateur, par trou...) ; la durée totale = estimatedDurationHours
+ *    × unitCount. Voir `taskTotalHours()` ci-dessous, qui est le seul point
+ *    d'entrée que le reste du code doit utiliser pour connaître la durée
+ *    réelle d'une tâche — ne jamais lire `estimatedDurationHours` seul pour
+ *    des calculs de planning.
+ */
+export type DurationMode = "FORFAIT" | "PER_UNIT";
+
+/**
  * "readiness" n'est JAMAIS stocké : il est toujours recalculé à partir des
  * dépendances (voir readiness.ts). On ne l'expose ici que comme type de retour.
  */
@@ -46,6 +58,11 @@ export interface Task {
 
   estimatedDurationHours: number;
   actualDurationHours: number | null;
+  durationMode: DurationMode;
+  /** Nombre d'unités si durationMode === "PER_UNIT" (portes, radiateurs...). Ignoré sinon. */
+  unitCount: number | null;
+  /** Libellé de l'unité si durationMode === "PER_UNIT" (ex: "porte", "trou"). */
+  unitLabel: string | null;
 
   requiredWorkers: number; // >= 1
 
@@ -106,4 +123,17 @@ export interface ProjectSnapshot {
   dependencies: TaskDependency[];
   members: Member[];
   assignments: TaskAssignment[];
+}
+
+/**
+ * Durée TOTALE réelle d'une tâche, seul point d'entrée à utiliser pour tout
+ * calcul de planning (chemin critique, planning ressources, totaux). Ne
+ * jamais lire `task.estimatedDurationHours` directement ailleurs que dans
+ * l'UI d'édition — c'est un temps par unité si durationMode === "PER_UNIT".
+ */
+export function taskTotalHours(task: Task): number {
+  if (task.durationMode === "PER_UNIT") {
+    return task.estimatedDurationHours * (task.unitCount ?? 0);
+  }
+  return task.estimatedDurationHours;
 }

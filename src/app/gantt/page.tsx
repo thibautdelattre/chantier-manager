@@ -77,7 +77,7 @@ export default function DependenciesPage() {
 
   return (
     <div>
-      <h1 className="font-display font-bold text-xl mb-1">Dépendances</h1>
+      <h1 className="font-display font-bold text-xl mb-1">Gantt</h1>
       <p className="text-sm text-ink/60 mb-1">
         Planning estimé avec vos 3 personnes — les barres qui se suivent au lieu de se chevaucher
         montrent où l&apos;équipe est le facteur limitant, pas seulement les dépendances.
@@ -150,7 +150,7 @@ export default function DependenciesPage() {
                         border: `2px solid ${r.view.isOnCriticalPath ? "#E1601F" : colors.border}`,
                         color: colors.text,
                       }}
-                      title={`${r.view.task.title} — ${r.view.task.estimatedDurationHours}h`}
+                      title={`${r.view.task.title} — ${r.view.totalHours}h`}
                     >
                       <span className="truncate">{r.view.task.title}</span>
                     </button>

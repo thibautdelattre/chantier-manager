@@ -1,6 +1,6 @@
 import { v4 as uuid } from "uuid";
 import { repository } from "@/db/jsonRepository";
-import type { Task, Member, TaskStatus, Priority } from "@/domain/types";
+import type { Task, Member, TaskStatus, Priority, DurationMode } from "@/domain/types";
 import { wouldCreateCycle, CycleError } from "@/domain/graph";
 import { validateAssignment, AssignmentError } from "@/domain/staffing";
 import { tasksUnlockedBy } from "@/domain/readiness";
@@ -27,6 +27,9 @@ export interface CreateTaskInput {
   area?: string;
   priority?: Priority;
   estimatedDurationHours?: number;
+  durationMode?: DurationMode;
+  unitCount?: number | null;
+  unitLabel?: string | null;
   requiredWorkers?: number;
   estimatedCost?: number | null;
   materials?: string[];
@@ -45,7 +48,10 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
     priority: input.priority ?? "NORMAL",
     estimatedDurationHours: input.estimatedDurationHours ?? 1,
     actualDurationHours: null,
-    requiredWorkers: Math.max(1, input.requiredWorkers ?? 1),
+    durationMode: input.durationMode ?? "FORFAIT",
+    unitCount: input.durationMode === "PER_UNIT" ? (input.unitCount ?? 0) : null,
+    unitLabel: input.durationMode === "PER_UNIT" ? (input.unitLabel ?? null) : null,
+    requiredWorkers: Math.max(0, input.requiredWorkers ?? 1),
     estimatedCost: input.estimatedCost ?? null,
     actualCost: null,
     materials: input.materials ?? [],

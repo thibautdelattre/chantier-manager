@@ -5,6 +5,7 @@ import type { StateResponse } from "@/lib/api-client";
 import { api } from "@/lib/api-client";
 import { ReadinessBadge, StaffingBadge } from "./badges";
 import type { ChecklistItem, TaskDependency } from "@/domain/types";
+import { taskTotalHours } from "@/domain/types";
 import { wouldCreateCycle } from "@/domain/graph";
 
 export function TaskDetail({
@@ -23,6 +24,7 @@ export function TaskDetail({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [newItemLabel, setNewItemLabel] = useState("");
+  const [newMaterial, setNewMaterial] = useState("");
 
   if (!view) return null;
   const { task } = view;
@@ -90,6 +92,21 @@ export function TaskDetail({
 
   function deleteChecklistItem(id: string) {
     saveChecklist(task.checklist.filter((i) => i.id !== id));
+  }
+
+  function saveMaterials(next: string[]) {
+    return withBusy(() => api.updateTask(task.id, { materials: next }));
+  }
+
+  function addMaterial() {
+    const label = newMaterial.trim();
+    if (!label) return;
+    setNewMaterial("");
+    saveMaterials([...task.materials, label]);
+  }
+
+  function deleteMaterial(idx: number) {
+    saveMaterials(task.materials.filter((_, i) => i !== idx));
   }
 
   return (
@@ -347,26 +364,110 @@ export function TaskDetail({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-5 text-sm">
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-ink/50 font-mono">Durée estimée (h)</span>
-            <input
-              type="number"
-              step="0.5"
-              defaultValue={task.estimatedDurationHours}
-              className="border border-line rounded px-2 py-1.5 bg-white"
-              onBlur={(e) =>
-                withBusy(() =>
-                  api.updateTask(task.id, { estimatedDurationHours: Number(e.target.value) })
-                )
+        <div className="mb-5 text-sm">
+          <span className="text-xs text-ink/50 font-mono block mb-1.5">Temps de la tâche</span>
+          <div className="flex gap-2 mb-2">
+            <button
+              onClick={() =>
+                withBusy(() => api.updateTask(task.id, { durationMode: "FORFAIT" }))
               }
-            />
-          </label>
+              className={`flex-1 rounded py-1.5 text-xs font-medium border ${
+                task.durationMode === "FORFAIT"
+                  ? "bg-blueprint text-white border-blueprint"
+                  : "border-line text-ink/60 bg-white"
+              }`}
+            >
+              Forfait
+            </button>
+            <button
+              onClick={() =>
+                withBusy(() => api.updateTask(task.id, { durationMode: "PER_UNIT" }))
+              }
+              className={`flex-1 rounded py-1.5 text-xs font-medium border ${
+                task.durationMode === "PER_UNIT"
+                  ? "bg-blueprint text-white border-blueprint"
+                  : "border-line text-ink/60 bg-white"
+              }`}
+            >
+              Par unité
+            </button>
+          </div>
+
+          {task.durationMode === "FORFAIT" ? (
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-ink/50 font-mono">Durée totale (h)</span>
+              <input
+                type="number"
+                step="0.5"
+                defaultValue={task.estimatedDurationHours}
+                className="border border-line rounded px-2 py-1.5 bg-white"
+                onBlur={(e) =>
+                  withBusy(() =>
+                    api.updateTask(task.id, { estimatedDurationHours: Number(e.target.value) })
+                  )
+                }
+              />
+            </label>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-ink/50 font-mono">Temps par unité (h)</span>
+                <input
+                  type="number"
+                  step="0.05"
+                  defaultValue={task.estimatedDurationHours}
+                  className="border border-line rounded px-2 py-1.5 bg-white"
+                  onBlur={(e) =>
+                    withBusy(() =>
+                      api.updateTask(task.id, { estimatedDurationHours: Number(e.target.value) })
+                    )
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-ink/50 font-mono">
+                  Nombre {task.unitLabel ? `de ${task.unitLabel}(s)` : "d'unités"}
+                </span>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  defaultValue={task.unitCount ?? 0}
+                  className="border border-line rounded px-2 py-1.5 bg-white"
+                  onBlur={(e) =>
+                    withBusy(() => api.updateTask(task.id, { unitCount: Number(e.target.value) }))
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1 col-span-2">
+                <span className="text-xs text-ink/50 font-mono">Libellé de l&apos;unité</span>
+                <input
+                  type="text"
+                  placeholder="porte, radiateur, trou…"
+                  defaultValue={task.unitLabel ?? ""}
+                  className="border border-line rounded px-2 py-1.5 bg-white"
+                  onBlur={(e) =>
+                    e.target.value !== (task.unitLabel ?? "") &&
+                    withBusy(() =>
+                      api.updateTask(task.id, { unitLabel: e.target.value || null })
+                    )
+                  }
+                />
+              </label>
+              <p className="col-span-2 text-xs text-ink/50">
+                Total : <strong className="font-mono">{taskTotalHours(task)} h</strong> (
+                {task.estimatedDurationHours} h × {task.unitCount ?? 0})
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="mb-5 text-sm">
           <label className="flex flex-col gap-1">
             <span className="text-xs text-ink/50 font-mono">Personnes nécessaires</span>
             <input
               type="number"
-              min={1}
+              min={0}
               max={3}
               defaultValue={task.requiredWorkers}
               className="border border-line rounded px-2 py-1.5 bg-white"
@@ -377,6 +478,54 @@ export function TaskDetail({
               }
             />
           </label>
+          {task.requiredWorkers === 0 && (
+            <p className="text-xs text-ink/40 mt-1">
+              0 = personne n&apos;a besoin d&apos;être présent (ex : temps de séchage).
+            </p>
+          )}
+        </div>
+
+        {/* Matériel */}
+        <div className="mb-5">
+          <h3 className="text-xs uppercase tracking-wide text-ink/50 font-mono mb-1.5">
+            Matériel nécessaire
+          </h3>
+          {task.materials.length > 0 && (
+            <ul className="space-y-1 mb-2">
+              {task.materials.map((m, idx) => (
+                <li
+                  key={`${m}-${idx}`}
+                  className="flex items-center justify-between gap-2 border border-line rounded px-2 py-1.5 bg-white text-sm"
+                >
+                  <span className="flex-1">{m}</span>
+                  <button
+                    onClick={() => deleteMaterial(idx)}
+                    disabled={busy}
+                    className="text-ink/40 hover:text-warn text-base leading-none"
+                    aria-label="Retirer ce matériel"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex gap-2">
+            <input
+              value={newMaterial}
+              onChange={(e) => setNewMaterial(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addMaterial()}
+              placeholder="Ajouter un matériel…"
+              className="flex-1 border border-line rounded px-2 py-1.5 text-sm bg-white"
+            />
+            <button
+              disabled={!newMaterial.trim() || busy}
+              onClick={addMaterial}
+              className="bg-blueprint text-white text-sm rounded px-3 disabled:opacity-40"
+            >
+              +
+            </button>
+          </div>
         </div>
 
         <button

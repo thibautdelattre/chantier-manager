@@ -80,7 +80,7 @@ export default function TeamPage() {
                         </span>
                       </div>
                       <span className="text-xs text-ink/50">
-                        {t.task.area} · {t.task.estimatedDurationHours}h
+                        {t.task.area} · {t.totalHours}h
                       </span>
                     </li>
                   ))}

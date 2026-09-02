@@ -100,7 +100,15 @@ export default function TablePage() {
                     ? "—"
                     : r.assignedMemberIds.map(memberName).join(", ")}
                 </td>
-                <td className="px-3 py-2 font-mono text-xs">{r.task.estimatedDurationHours}h</td>
+                <td className="px-3 py-2 font-mono text-xs">
+                  {r.totalHours}h
+                  {r.task.durationMode === "PER_UNIT" && (
+                    <span className="text-ink/40">
+                      {" "}
+                      ({r.task.estimatedDurationHours}×{r.task.unitCount ?? 0} {r.task.unitLabel ?? ""})
+                    </span>
+                  )}
+                </td>
                 <td className="px-3 py-2 font-mono text-xs">
                   {r.task.estimatedCost != null ? `${r.task.estimatedCost} €` : "—"}
                 </td>

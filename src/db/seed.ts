@@ -1,128 +1,112 @@
 import { v4 as uuid } from "uuid";
-import type { Member, Project, Task, TaskDependency } from "@/domain/types";
+import type { Member, Project, Task, TaskDependency, DurationMode } from "@/domain/types";
 
-function task(partial: {
-  id: string;
+interface RawTask {
+  id: number;
   title: string;
-  area: string;
-  duration: number;
-  workers?: number;
-  status?: Task["status"];
-  priority?: Task["priority"];
-}): Task {
-  const now = new Date().toISOString();
-  return {
-    id: partial.id,
-    projectId: "seed-project",
-    title: partial.title,
-    description: "",
-    area: partial.area,
-    status: partial.status ?? "TODO",
-    priority: partial.priority ?? "NORMAL",
-    estimatedDurationHours: partial.duration,
-    actualDurationHours: null,
-    requiredWorkers: partial.workers ?? 1,
-    estimatedCost: null,
-    actualCost: null,
-    materials: [],
-    notes: "",
-    checklist: [],
-    customFields: {},
-    createdAt: now,
-    startedAt: null,
-    completedAt: null,
-  };
+  mode: DurationMode;
+  hours: number; // total si FORFAIT, taux par unité si PER_UNIT
+  unitLabel?: string;
+  unitCount?: number; // nombre d'unités connu ; laissé à 0 ("à saisir") sinon
+  after: number[]; // IDs des tâches prérequises (d'après "Doit être réalisée après")
+  note?: string; // pour les durées non fournies ("à estimer", "durée manquante"...)
+  noWorkerNeeded?: boolean; // temps de séchage : personne n'a besoin d'être présent
+}
+
+// Directement transcrit du tableau fourni (35 tâches, dépendances par ID).
+const RAW: RawTask[] = [
+  { id: 1, title: "Installation du lavabo de chantier", mode: "FORFAIT", hours: 1.5, after: [] },
+  { id: 2, title: "Nettoyage initial et dégagement des pièces", mode: "FORFAIT", hours: 3.5, after: [1] },
+  { id: 3, title: "Enlever les portes", mode: "PER_UNIT", hours: 0.33, unitLabel: "porte", after: [2] },
+  { id: 4, title: "Déposer les anciens radiateurs si nécessaire", mode: "FORFAIT", hours: 0, after: [2], note: "Durée à estimer." },
+  { id: 5, title: "Démolition des murs et évacuation", mode: "FORFAIT", hours: 36, after: [3, 4] },
+  { id: 6, title: "Démolition des sols et évacuation", mode: "FORFAIT", hours: 12, after: [5] },
+  { id: 7, title: "Rebouchage béton et remaçonnage", mode: "FORFAIT", hours: 4.5, after: [5, 6] },
+  { id: 8, title: "Séchage de la maçonnerie", mode: "FORFAIT", hours: 24, after: [7], note: "Temps de séchage — à ajuster selon météo/produit.", noWorkerNeeded: true },
+  { id: 9, title: "Préparation des évacuations d'eau", mode: "FORFAIT", hours: 0, after: [5, 6], note: "Durée manquante — à estimer." },
+  { id: 10, title: "Préparation plomberie douche, vasque et WC", mode: "FORFAIT", hours: 0, after: [9], note: "Durée à estimer." },
+  { id: 11, title: "Isolation des murs", mode: "FORFAIT", hours: 18, after: [7, 8, 9, 10], note: "18h (façade avant) ou 36h (avant + arrière) selon l'étendue — à ajuster." },
+  { id: 12, title: "Pose des plaques de plâtre", mode: "FORFAIT", hours: 0, after: [11], note: "Durée manquante — dépend du nombre de plaques (voir page Matériel)." },
+  { id: 13, title: "Rebouchage des trous dans le placo", mode: "PER_UNIT", hours: 1, unitLabel: "trou", after: [12] },
+  { id: 14, title: "Bandes armées et enduit", mode: "FORFAIT", hours: 24, after: [12, 13], note: "24h si peu de découpes, 36h si beaucoup — à ajuster." },
+  { id: 15, title: "Séchage de l'enduit", mode: "FORFAIT", hours: 24, after: [14], note: "Temps de séchage — à ajuster.", noWorkerNeeded: true },
+  { id: 16, title: "Ponçage des murs", mode: "FORFAIT", hours: 18, after: [15] },
+  { id: 17, title: "Ponçage des bâtis de porte", mode: "PER_UNIT", hours: 0.5, unitLabel: "bâti", after: [15] },
+  { id: 18, title: "Ponçage de l'escalier", mode: "FORFAIT", hours: 18, after: [6] },
+  { id: 19, title: "Pose des supports de radiateur", mode: "PER_UNIT", hours: 0.75, unitLabel: "radiateur", after: [16] },
+  { id: 20, title: "Première couche de peinture", mode: "FORFAIT", hours: 18, after: [16, 17, 19] },
+  { id: 21, title: "Séchage de la première couche", mode: "FORFAIT", hours: 12, after: [20], note: "Temps de séchage — à ajuster.", noWorkerNeeded: true },
+  { id: 22, title: "Deuxième couche de peinture", mode: "FORFAIT", hours: 15, after: [21] },
+  { id: 23, title: "Séchage de la deuxième couche", mode: "FORFAIT", hours: 12, after: [22], note: "Temps de séchage — à ajuster.", noWorkerNeeded: true },
+  { id: 24, title: "Vitrification ou traitement de l'escalier", mode: "FORFAIT", hours: 18, after: [18] },
+  { id: 25, title: "Séchage de l'escalier", mode: "FORFAIT", hours: 24, after: [24], note: "Temps de séchage — à ajuster.", noWorkerNeeded: true },
+  { id: 26, title: "Sol du deuxième étage", mode: "FORFAIT", hours: 8, after: [23] },
+  { id: 27, title: "Sol du premier étage", mode: "FORFAIT", hours: 18, after: [26] },
+  { id: 28, title: "Sol du rez-de-chaussée", mode: "FORFAIT", hours: 18, after: [27] },
+  { id: 29, title: "Installation des nouvelles portes", mode: "PER_UNIT", hours: 0.5, unitLabel: "porte", after: [23, 28] },
+  { id: 30, title: "Changement des radiateurs", mode: "PER_UNIT", hours: 1.3, unitLabel: "radiateur", after: [23] },
+  { id: 31, title: "Installation des toilettes", mode: "FORFAIT", hours: 3, after: [10, 22, 28] },
+  { id: 32, title: "Installation cabine de douche et meuble vasque", mode: "FORFAIT", hours: 7.5, after: [10, 22, 28] },
+  { id: 33, title: "Installation rangements, frigo et évier", mode: "FORFAIT", hours: 18, after: [23, 28, 10] },
+  { id: 34, title: "Retouches et essais", mode: "FORFAIT", hours: 0, after: [29, 30, 31, 32, 33], note: "Durée à estimer." },
+  { id: 35, title: "Nettoyage de fin de chantier", mode: "FORFAIT", hours: 18, after: [34] },
+];
+
+function idOf(n: number): string {
+  return `t${n}`;
 }
 
 /**
- * Construit un jeu de données de démonstration réaliste, correspondant à
- * l'exemple donné dans le brief : chaîne linéaire de préparation, puis
- * embranchement plomberie/électricité en parallèle convergeant vers
- * l'isolation, et plusieurs pièces pour vérifier le travail simultané.
+ * Construit le jeu de données du chantier à partir du tableau fourni par
+ * l'utilisateur (35 tâches, séquence linéaire avec quelques embranchements
+ * parallèles). Les tâches "séchage" ont requiredWorkers = 0 : personne n'a
+ * besoin d'être présent, seul le temps doit s'écouler avant l'étape
+ * suivante — mais elles bloquent quand même la disponibilité de ce qui suit.
  */
 export function buildSeedData() {
   const projectId = "seed-project";
   const project: Project = {
     id: projectId,
-    name: "Rénovation — Maison",
+    name: "Rénovation",
     createdAt: new Date().toISOString(),
   };
 
   const members: Member[] = [
-    { id: "member-1", projectId, name: "Personne 1" },
-    { id: "member-2", projectId, name: "Personne 2" },
-    { id: "member-3", projectId, name: "Personne 3" },
+    { id: "member-1", projectId, name: "Arthur" },
+    { id: "member-2", projectId, name: "Victor" },
+    { id: "member-3", projectId, name: "Tibo" },
   ];
 
-  const tasks: Task[] = [
-    task({ id: "t-debarras", title: "Débarrasser", area: "Général", duration: 3, status: "DONE" }),
-    task({ id: "t-nettoyage", title: "Nettoyage initial", area: "Général", duration: 3.5 }),
-    task({ id: "t-demolition", title: "Démolition", area: "Général", duration: 8, workers: 2 }),
-    task({ id: "t-evacuation", title: "Évacuation des gravats", area: "Général", duration: 4 }),
-    task({ id: "t-maconnerie", title: "Maçonnerie", area: "Général", duration: 12, workers: 2, priority: "HIGH" }),
+  const now = new Date().toISOString();
 
-    task({ id: "t-plomberie-cuisine", title: "Plomberie", area: "Cuisine", duration: 10, priority: "HIGH" }),
-    task({ id: "t-electricite-cuisine", title: "Électricité", area: "Cuisine", duration: 8, priority: "HIGH" }),
-    task({ id: "t-isolation-cuisine", title: "Isolation", area: "Cuisine", duration: 6, workers: 2 }),
-    task({ id: "t-placo-cuisine", title: "Placo", area: "Cuisine", duration: 16, workers: 2 }),
-    task({ id: "t-enduit-cuisine", title: "Bandes / Enduit", area: "Cuisine", duration: 24 }),
-    task({ id: "t-poncage-cuisine", title: "Ponçage", area: "Cuisine", duration: 18 }),
-    task({ id: "t-peinture-cuisine", title: "Peinture", area: "Cuisine", duration: 18 }),
-    task({ id: "t-radiateurs-cuisine", title: "Pose radiateurs", area: "Cuisine", duration: 3 }),
+  const tasks: Task[] = RAW.map((r) => ({
+    id: idOf(r.id),
+    projectId,
+    title: r.title,
+    description: "",
+    area: "Général",
+    status: "TODO",
+    priority: "NORMAL",
+    estimatedDurationHours: r.hours,
+    actualDurationHours: null,
+    durationMode: r.mode,
+    unitCount: r.mode === "PER_UNIT" ? (r.unitCount ?? 0) : null,
+    unitLabel: r.mode === "PER_UNIT" ? (r.unitLabel ?? null) : null,
+    requiredWorkers: r.noWorkerNeeded ? 0 : 1,
+    estimatedCost: null,
+    actualCost: null,
+    materials: [],
+    notes: r.note ?? "",
+    checklist: [],
+    customFields: {},
+    createdAt: now,
+    startedAt: null,
+    completedAt: null,
+  }));
 
-    task({ id: "t-plomberie-sdb", title: "Plomberie", area: "Salle de bain", duration: 12, priority: "CRITICAL" }),
-    task({ id: "t-electricite-sdb", title: "Électricité", area: "Salle de bain", duration: 6 }),
-    task({ id: "t-carrelage-sdb", title: "Carrelage", area: "Salle de bain", duration: 20, workers: 2 }),
-    task({ id: "t-sanitaires-sdb", title: "Installation sanitaires", area: "Salle de bain", duration: 8 }),
-
-    task({ id: "t-nettoyage-salon", title: "Nettoyage", area: "Salon", duration: 2 }),
-    task({ id: "t-sol-salon", title: "Changer le sol", area: "Salon", duration: 8 }),
-    task({ id: "t-peinture-salon", title: "Peinture", area: "Salon", duration: 12 }),
-
-    task({ id: "t-nettoyage-ch1", title: "Nettoyage", area: "Chambre 1", duration: 2 }),
-    task({ id: "t-peinture-ch1", title: "Peinture", area: "Chambre 1", duration: 10 }),
-    task({ id: "t-sol-ch1", title: "Changer le sol", area: "Chambre 1", duration: 6 }),
-
-    task({ id: "t-nettoyage-ch2", title: "Nettoyage", area: "Chambre 2", duration: 2 }),
-    task({ id: "t-peinture-ch2", title: "Peinture", area: "Chambre 2", duration: 10 }),
-  ];
-
-  const dependencies: TaskDependency[] = [
-    dep("t-nettoyage", "t-debarras"),
-    dep("t-demolition", "t-nettoyage"),
-    dep("t-evacuation", "t-demolition"),
-    dep("t-maconnerie", "t-evacuation"),
-
-    // Cuisine : plomberie + électricité en parallèle, convergent vers isolation
-    dep("t-plomberie-cuisine", "t-maconnerie"),
-    dep("t-electricite-cuisine", "t-maconnerie"),
-    dep("t-isolation-cuisine", "t-plomberie-cuisine"),
-    dep("t-isolation-cuisine", "t-electricite-cuisine"),
-    dep("t-placo-cuisine", "t-isolation-cuisine"),
-    dep("t-enduit-cuisine", "t-placo-cuisine"),
-    dep("t-poncage-cuisine", "t-enduit-cuisine"),
-    dep("t-peinture-cuisine", "t-poncage-cuisine"),
-    dep("t-radiateurs-cuisine", "t-placo-cuisine"),
-
-    // Salle de bain : chaîne indépendante de la cuisine (peut avancer en parallèle)
-    dep("t-plomberie-sdb", "t-maconnerie"),
-    dep("t-electricite-sdb", "t-maconnerie"),
-    dep("t-carrelage-sdb", "t-plomberie-sdb"),
-    dep("t-carrelage-sdb", "t-electricite-sdb"),
-    dep("t-sanitaires-sdb", "t-carrelage-sdb"),
-
-    // Salon et chambres : indépendants de la cuisine/SdB, juste après nettoyage général
-    dep("t-sol-salon", "t-nettoyage-salon"),
-    dep("t-peinture-salon", "t-sol-salon"),
-    dep("t-nettoyage-salon", "t-evacuation"),
-
-    dep("t-peinture-ch1", "t-nettoyage-ch1"),
-    dep("t-sol-ch1", "t-peinture-ch1"),
-    dep("t-nettoyage-ch1", "t-evacuation"),
-
-    dep("t-peinture-ch2", "t-nettoyage-ch2"),
-    dep("t-nettoyage-ch2", "t-evacuation"),
-  ];
+  const dependencies: TaskDependency[] = RAW.flatMap((r) =>
+    r.after.map((a) => ({ id: uuid(), taskId: idOf(r.id), dependsOnTaskId: idOf(a) }))
+  );
 
   return {
     projects: [project],
@@ -131,8 +115,4 @@ export function buildSeedData() {
     members,
     assignments: [],
   };
-}
-
-function dep(taskId: string, dependsOnTaskId: string): TaskDependency {
-  return { id: uuid(), taskId, dependsOnTaskId };
 }

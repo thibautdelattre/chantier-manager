@@ -32,8 +32,14 @@ create table if not exists task (
 
   estimated_duration_hours numeric not null default 0,
   actual_duration_hours numeric,
+  -- FORFAIT: estimated_duration_hours est la durée totale.
+  -- PER_UNIT: estimated_duration_hours est le temps par unité ; la durée
+  -- totale = estimated_duration_hours × unit_count (calculé en application).
+  duration_mode text not null default 'FORFAIT' check (duration_mode in ('FORFAIT','PER_UNIT')),
+  unit_count numeric,
+  unit_label text,
 
-  required_workers integer not null default 1 check (required_workers >= 1),
+  required_workers integer not null default 1 check (required_workers >= 0),
 
   estimated_cost numeric,
   actual_cost numeric,

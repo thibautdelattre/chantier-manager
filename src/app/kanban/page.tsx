@@ -28,7 +28,15 @@ function columnOf(t: TaskView): ColumnId {
   return t.readiness.readiness === "READY" ? "available" : "blocked";
 }
 
-function Card({ view, onOpen }: { view: TaskView; onOpen: () => void }) {
+function Card({
+  view,
+  memberNames,
+  onOpen,
+}: {
+  view: TaskView;
+  memberNames: (ids: string[]) => string;
+  onOpen: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: view.task.id,
   });
@@ -51,8 +59,11 @@ function Card({ view, onOpen }: { view: TaskView; onOpen: () => void }) {
       <p className="font-medium">{view.task.title}</p>
       <p className="text-xs text-ink/50 mt-1">
         👤 {view.assignedMemberIds.length}/{view.task.requiredWorkers} · ⏱{" "}
-        {view.task.estimatedDurationHours}h
+        {view.totalHours}h
       </p>
+      {view.assignedMemberIds.length > 0 && (
+        <p className="text-[10px] text-blueprint mt-0.5">{memberNames(view.assignedMemberIds)}</p>
+      )}
     </div>
   );
 }
@@ -62,12 +73,14 @@ function Column({
   label,
   color,
   items,
+  memberNames,
   onOpen,
 }: {
   id: ColumnId;
   label: string;
   color: string;
   items: TaskView[];
+  memberNames: (ids: string[]) => string;
   onOpen: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -84,7 +97,7 @@ function Column({
       </div>
       <div className="space-y-2">
         {items.map((v) => (
-          <Card key={v.task.id} view={v} onOpen={() => onOpen(v.task.id)} />
+          <Card key={v.task.id} view={v} memberNames={memberNames} onOpen={() => onOpen(v.task.id)} />
         ))}
       </div>
     </div>
@@ -96,6 +109,7 @@ export default function KanbanPage() {
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [filterMemberId, setFilterMemberId] = useState<string>("");
 
   const grouped = useMemo(() => {
     const g: Record<ColumnId, TaskView[]> = {
@@ -105,12 +119,18 @@ export default function KanbanPage() {
       done: [],
     };
     if (!state) return g;
-    for (const t of state.view.tasks) g[columnOf(t)].push(t);
+    const visible = state.view.tasks.filter(
+      (t) => !filterMemberId || t.assignedMemberIds.includes(filterMemberId)
+    );
+    for (const t of visible) g[columnOf(t)].push(t);
     return g;
-  }, [state]);
+  }, [state, filterMemberId]);
 
   if (loading) return <p className="text-sm text-ink/50">Chargement…</p>;
   if (error || !state) return <p className="text-sm text-warn">{error}</p>;
+
+  const memberNames = (ids: string[]) =>
+    ids.map((id) => state.members.find((m) => m.id === id)?.name ?? "?").join(", ");
 
   async function handleDragEnd(event: DragEndEvent) {
     const taskId = event.active.id as string;
@@ -151,19 +171,33 @@ export default function KanbanPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div>
           <h1 className="font-display font-bold text-xl">Kanban</h1>
           <p className="text-sm text-ink/60">
             Les colonnes reflètent l&apos;état métier — elles ne sont pas la source de vérité.
           </p>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="bg-chantier text-white text-sm font-medium rounded px-3 py-2"
-        >
-          + Tâche
-        </button>
+        <div className="flex gap-2 items-center">
+          <select
+            value={filterMemberId}
+            onChange={(e) => setFilterMemberId(e.target.value)}
+            className="border border-line rounded px-2 py-1.5 text-sm bg-white"
+          >
+            <option value="">Toutes les tâches</option>
+            {state.members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setShowNew(true)}
+            className="bg-chantier text-white text-sm font-medium rounded px-3 py-2"
+          >
+            + Tâche
+          </button>
+        </div>
       </div>
 
       {notice && (
@@ -181,6 +215,7 @@ export default function KanbanPage() {
               label={c.label}
               color={c.color}
               items={grouped[c.id]}
+              memberNames={memberNames}
               onOpen={setOpenTaskId}
             />
           ))}

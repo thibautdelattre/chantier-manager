@@ -1,5 +1,5 @@
 import type { ProjectView } from "@/domain/projectView";
-import type { Priority, Task, TaskStatus, Member } from "@/domain/types";
+import type { Priority, Task, TaskStatus, Member, DurationMode } from "@/domain/types";
 
 export interface StateResponse {
   projectId: string;
@@ -23,6 +23,9 @@ export const api = {
     area?: string;
     priority?: Priority;
     estimatedDurationHours?: number;
+    durationMode?: DurationMode;
+    unitCount?: number | null;
+    unitLabel?: string | null;
     requiredWorkers?: number;
     description?: string;
     notes?: string;

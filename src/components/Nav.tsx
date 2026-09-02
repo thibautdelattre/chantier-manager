@@ -9,7 +9,8 @@ const LINKS = [
   { href: "/table", label: "Tableau", icon: "📋" },
   { href: "/team", label: "Équipe", icon: "👥" },
   { href: "/kanban", label: "Kanban", icon: "🗂️" },
-  { href: "/dependencies", label: "Dépendances", icon: "🕸️" },
+  { href: "/gantt", label: "Gantt", icon: "📅" },
+  { href: "/materiel", label: "Matériel", icon: "🧰" },
 ];
 
 export default function Nav() {

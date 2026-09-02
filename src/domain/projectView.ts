@@ -5,6 +5,7 @@
  */
 
 import type { ProjectSnapshot, Task } from "./types";
+import { taskTotalHours } from "./types";
 import { computeReadiness, type ReadinessResult } from "./readiness";
 import {
   computeStaffingState,
@@ -18,6 +19,8 @@ import { estimateResourcePlan, type PlanningResult } from "./planning";
 
 export interface TaskView {
   task: Task;
+  /** Durée totale réelle (déjà multipliée par le nombre d'unités si applicable). */
+  totalHours: number;
   readiness: ReadinessResult;
   staffing: ReturnType<typeof computeStaffingState>;
   assignedMemberIds: string[];
@@ -52,6 +55,7 @@ export function buildProjectView(snapshot: ProjectSnapshot): ProjectView {
 
     return {
       task,
+      totalHours: taskTotalHours(task),
       readiness,
       staffing,
       assignedMemberIds: assignedMemberIds(task.id, assignments),
@@ -64,7 +68,7 @@ export function buildProjectView(snapshot: ProjectSnapshot): ProjectView {
 
   const totalRemainingHours = tasks
     .filter((t) => t.status !== "DONE")
-    .reduce((sum, t) => sum + t.estimatedDurationHours, 0);
+    .reduce((sum, t) => sum + taskTotalHours(t), 0);
 
   const resourcePlan = estimateResourcePlan(tasks, dependencies, members.length || 1);
 

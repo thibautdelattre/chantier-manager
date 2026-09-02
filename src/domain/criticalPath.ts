@@ -8,6 +8,7 @@
  */
 
 import type { Task, TaskDependency } from "./types";
+import { taskTotalHours } from "./types";
 import { directDependenciesOf, topologicalOrder } from "./graph";
 
 export interface CriticalPathResult {
@@ -46,7 +47,7 @@ export function computeCriticalPath(
         bestPred = depId;
       }
     }
-    earliestFinish.set(id, maxDepFinish + task.estimatedDurationHours);
+    earliestFinish.set(id, maxDepFinish + taskTotalHours(task));
     predecessorOnPath.set(id, bestPred);
   }
 
